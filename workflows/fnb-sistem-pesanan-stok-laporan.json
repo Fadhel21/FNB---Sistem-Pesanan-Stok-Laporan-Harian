@@ -1,0 +1,1628 @@
+﻿{
+    "name":  "FNB - Sistem Pesanan, Stok \u0026 Laporan Harian",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "content":  "## SETUP SEKALI SAJA\n1. Buka node \u0027Konfigurasi Pesanan\u0027 dan \u0027Konfigurasi Laporan\u0027, ganti: chat_id_dapur, chat_id_owner, email_owner, email_supplier, sheet_id, nama_toko\n2. Buat Google Sheet dengan 2 tab:\n- Tab \u0027Pesanan\u0027 header baris 1: order_id | waktu | pelanggan | tipe | member | item | subtotal | diskon | promo | biaya_layanan | ongkir | pajak | total_bayar | poin | status\n- Tab \u0027Laporan Harian\u0027 header baris 1: tanggal | omzet | jumlah_pesanan | rata_rata | menu_terlaris | stok_kritis\n3. Ganti GANTI_CHAT_ID_OWNER di workflow \u0027FNB - Penangan Error (Telegram)\u0027\n4. Aktifkan workflow (toggle Active) supaya jadwal dan stok permanen jalan\nCredential Telegram, Gmail, Google Sheets sudah terpasang.",
+                                         "height":  340,
+                                         "width":  900,
+                                         "color":  3
+                                     },
+                      "id":  "note-setup",
+                      "name":  "Catatan Setup",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -48,
+                                       -416
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "content":  "## ALUR 1: PESANAN MASUK\nPOST /webhook/fnb-order\nBody contoh:\n{\"pelanggan\":\"Budi\",\"email\":\"budi@mail.com\",\"tipe\":\"delivery\",\"alamat\":\"Jl. Mawar 5\",\"member\":\"gold\",\"jarak_km\":3,\"kode_promo\":\"HEMAT10\",\"catatan\":\"tanpa pedas\",\"items\":[{\"kode\":\"nasi-goreng\",\"qty\":2},{\"kode\":\"es-teh\",\"qty\":2}]}\nTipe: dine-in (wajib \u0027meja\u0027) | takeaway | delivery (wajib \u0027alamat\u0027)\nMenu: nasi-goreng, mie-goreng, ayam-bakar, es-kopi-susu, es-teh\nPromo: HEMAT10 (min 50rb), GRATISONGKIR (delivery min 75rb)\nHappy hour 14:00-16:00: minuman diskon 10%",
+                                         "height":  260,
+                                         "width":  900,
+                                         "color":  4
+                                     },
+                      "id":  "note-1",
+                      "name":  "Catatan Alur Pesanan",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -48,
+                                       -48
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "fnb-order",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "wh-1",
+                      "name":  "Webhook Pesanan Masuk",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       0,
+                                       624
+                                   ],
+                      "webhookId":  "fnb-order-webhook"
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "k1",
+                                                                                     "name":  "nama_toko",
+                                                                                     "value":  "Warung Nusantara",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "k2",
+                                                                                     "name":  "chat_id_dapur",
+                                                                                     "value":  "GANTI_CHAT_ID_DAPUR",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "k3",
+                                                                                     "name":  "chat_id_owner",
+                                                                                     "value":  "GANTI_CHAT_ID_OWNER",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "k4",
+                                                                                     "name":  "email_owner",
+                                                                                     "value":  "GANTI_EMAIL_OWNER",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "k5",
+                                                                                     "name":  "sheet_id",
+                                                                                     "value":  "GANTI_SHEET_ID",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "includeOtherFields":  true,
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "cfg-1",
+                      "name":  "Konfigurasi Pesanan",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       224,
+                                       624
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const MENU = {\n  \u0027nasi-goreng\u0027: { nama: \u0027Nasi Goreng Spesial\u0027, harga: 35000 },\n  \u0027mie-goreng\u0027: { nama: \u0027Mie Goreng Seafood\u0027, harga: 32000 },\n  \u0027ayam-bakar\u0027: { nama: \u0027Ayam Bakar Madu\u0027, harga: 42000 },\n  \u0027es-kopi-susu\u0027: { nama: \u0027Es Kopi Susu\u0027, harga: 22000 },\n  \u0027es-teh\u0027: { nama: \u0027Es Teh Manis\u0027, harga: 8000 }\n};\nconst body = $input.first().json.body || {};\nconst items = Array.isArray(body.items) ? body.items : [];\nconst errors = [];\nif (!body.pelanggan) errors.push(\u0027Nama pelanggan wajib diisi\u0027);\nif (![\u0027dine-in\u0027, \u0027takeaway\u0027, \u0027delivery\u0027].includes(body.tipe)) errors.push(\u0027Tipe pesanan harus dine-in, takeaway, atau delivery\u0027);\nif (body.tipe === \u0027dine-in\u0027 \u0026\u0026 !body.meja) errors.push(\u0027Nomor meja wajib untuk dine-in\u0027);\nif (body.tipe === \u0027delivery\u0027 \u0026\u0026 !body.alamat) errors.push(\u0027Alamat wajib untuk delivery\u0027);\nif (body.email \u0026\u0026 !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(body.email)) errors.push(\u0027Format email tidak valid\u0027);\nif (items.length === 0) errors.push(\u0027Item pesanan kosong\u0027);\nlet subtotal = 0;\nconst detail = [];\nfor (const it of items) {\n  const m = MENU[it.kode];\n  if (!m) { errors.push(\u0027Menu tidak dikenal: \u0027 + it.kode); continue; }\n  const qty = Number(it.qty) || 0;\n  if (qty \u003c= 0) { errors.push(\u0027Qty tidak valid untuk \u0027 + it.kode); continue; }\n  const total = m.harga * qty;\n  subtotal += total;\n  detail.push({ kode: it.kode, nama: m.nama, qty, harga: m.harga, total });\n}\nreturn [{ json: {\n  order_id: \u0027FNB-\u0027 + Date.now(),\n  waktu: new Date().toISOString(),\n  pelanggan: body.pelanggan || null,\n  email: body.email || null,\n  tipe: body.tipe || null,\n  meja: body.meja || null,\n  alamat: body.alamat || null,\n  catatan_pelanggan: body.catatan || \u0027\u0027,\n  kode_promo: String(body.kode_promo || \u0027\u0027).toUpperCase(),\n  member: body.member || \u0027none\u0027,\n  jarak_km: Number(body.jarak_km) || 0,\n  items: detail,\n  subtotal,\n  valid: errors.length === 0,\n  errors\n} }];"
+                                     },
+                      "id":  "code-1",
+                      "name":  "Validasi dan Hitung Subtotal",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       448,
+                                       624
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "c-valid",
+                                                                                   "leftValue":  "={{ $json.valid }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "if-1",
+                      "name":  "Pesanan Valid?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       672,
+                                       624
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ JSON.stringify({ status: \u0027error\u0027, pesan: \u0027Pesanan tidak valid\u0027, errors: $json.errors }) }}",
+                                         "options":  {
+                                                         "responseCode":  400
+                                                     }
+                                     },
+                      "id":  "resp-err",
+                      "name":  "Respon Error Validasi",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       896,
+                                       720
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "rules":  {
+                                                       "values":  [
+                                                                      {
+                                                                          "conditions":  {
+                                                                                             "options":  {
+                                                                                                             "caseSensitive":  true,
+                                                                                                             "leftValue":  "",
+                                                                                                             "typeValidation":  "strict",
+                                                                                                             "version":  2
+                                                                                                         },
+                                                                                             "conditions":  [
+                                                                                                                {
+                                                                                                                    "id":  "s1",
+                                                                                                                    "leftValue":  "={{ $json.tipe }}",
+                                                                                                                    "rightValue":  "dine-in",
+                                                                                                                    "operator":  {
+                                                                                                                                     "type":  "string",
+                                                                                                                                     "operation":  "equals"
+                                                                                                                                 }
+                                                                                                                }
+                                                                                                            ],
+                                                                                             "combinator":  "and"
+                                                                                         },
+                                                                          "renameOutput":  true,
+                                                                          "outputKey":  "Dine-in"
+                                                                      },
+                                                                      {
+                                                                          "conditions":  {
+                                                                                             "options":  {
+                                                                                                             "caseSensitive":  true,
+                                                                                                             "leftValue":  "",
+                                                                                                             "typeValidation":  "strict",
+                                                                                                             "version":  2
+                                                                                                         },
+                                                                                             "conditions":  [
+                                                                                                                {
+                                                                                                                    "id":  "s2",
+                                                                                                                    "leftValue":  "={{ $json.tipe }}",
+                                                                                                                    "rightValue":  "takeaway",
+                                                                                                                    "operator":  {
+                                                                                                                                     "type":  "string",
+                                                                                                                                     "operation":  "equals"
+                                                                                                                                 }
+                                                                                                                }
+                                                                                                            ],
+                                                                                             "combinator":  "and"
+                                                                                         },
+                                                                          "renameOutput":  true,
+                                                                          "outputKey":  "Takeaway"
+                                                                      },
+                                                                      {
+                                                                          "conditions":  {
+                                                                                             "options":  {
+                                                                                                             "caseSensitive":  true,
+                                                                                                             "leftValue":  "",
+                                                                                                             "typeValidation":  "strict",
+                                                                                                             "version":  2
+                                                                                                         },
+                                                                                             "conditions":  [
+                                                                                                                {
+                                                                                                                    "id":  "s3",
+                                                                                                                    "leftValue":  "={{ $json.tipe }}",
+                                                                                                                    "rightValue":  "delivery",
+                                                                                                                    "operator":  {
+                                                                                                                                     "type":  "string",
+                                                                                                                                     "operation":  "equals"
+                                                                                                                                 }
+                                                                                                                }
+                                                                                                            ],
+                                                                                             "combinator":  "and"
+                                                                                         },
+                                                                          "renameOutput":  true,
+                                                                          "outputKey":  "Delivery"
+                                                                      }
+                                                                  ]
+                                                   },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "sw-1",
+                      "name":  "Tipe Pesanan",
+                      "type":  "n8n-nodes-base.switch",
+                      "typeVersion":  3.2,
+                      "position":  [
+                                       896,
+                                       496
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "d1",
+                                                                                     "name":  "biaya_layanan",
+                                                                                     "value":  "={{ Math.round($json.subtotal * 0.05) }}",
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "d2",
+                                                                                     "name":  "ongkir",
+                                                                                     "value":  0,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "d3",
+                                                                                     "name":  "estimasi_menit",
+                                                                                     "value":  15,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "d4",
+                                                                                     "name":  "catatan",
+                                                                                     "value":  "Diantar ke meja (service charge 5%)",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "includeOtherFields":  true,
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "set-dine",
+                      "name":  "Biaya Dine-in",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       1120,
+                                       224
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "t1",
+                                                                                     "name":  "biaya_layanan",
+                                                                                     "value":  0,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "t2",
+                                                                                     "name":  "ongkir",
+                                                                                     "value":  0,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "t3",
+                                                                                     "name":  "estimasi_menit",
+                                                                                     "value":  10,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "t4",
+                                                                                     "name":  "catatan",
+                                                                                     "value":  "Ambil di kasir",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "includeOtherFields":  true,
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "set-take",
+                      "name":  "Biaya Takeaway",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       1120,
+                                       416
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "v1",
+                                                                                     "name":  "biaya_layanan",
+                                                                                     "value":  0,
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "v2",
+                                                                                     "name":  "ongkir",
+                                                                                     "value":  "={{ Math.max(8000, $json.jarak_km * 3000) }}",
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "v3",
+                                                                                     "name":  "estimasi_menit",
+                                                                                     "value":  "={{ 25 + Math.round($json.jarak_km * 5) }}",
+                                                                                     "type":  "number"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "v4",
+                                                                                     "name":  "catatan",
+                                                                                     "value":  "Ongkir Rp3.000/km, minimum Rp8.000",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "includeOtherFields":  true,
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "set-deliv",
+                      "name":  "Biaya Delivery",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       1120,
+                                       608
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const o = $input.first().json;\nconst TIER = { none: 0, bronze: 0.05, silver: 0.10, gold: 0.15 };\nconst rate = TIER[o.member] ?? 0;\nconst diskon_member = Math.round(o.subtotal * rate);\nconst jam = new Date(new Date().toLocaleString(\u0027en-US\u0027, { timeZone: \u0027Asia/Jakarta\u0027 })).getHours();\nconst happy_hour = jam \u003e= 14 \u0026\u0026 jam \u003c 16;\nconst minuman = o.items.filter(i =\u003e [\u0027es-kopi-susu\u0027, \u0027es-teh\u0027].includes(i.kode)).reduce((s, i) =\u003e s + i.total, 0);\nconst diskon_happy_hour = happy_hour ? Math.round(minuman * 0.10) : 0;\nlet diskon_promo = 0;\nlet potongan_ongkir = 0;\nlet promo_info = null;\nif (o.kode_promo) {\n  if (o.kode_promo === \u0027HEMAT10\u0027 \u0026\u0026 o.subtotal \u003e= 50000) {\n    diskon_promo = Math.min(20000, Math.round(o.subtotal * 0.10));\n    promo_info = \u0027HEMAT10 diterapkan\u0027;\n  } else if (o.kode_promo === \u0027GRATISONGKIR\u0027 \u0026\u0026 o.tipe === \u0027delivery\u0027 \u0026\u0026 o.subtotal \u003e= 75000) {\n    potongan_ongkir = o.ongkir;\n    promo_info = \u0027GRATISONGKIR diterapkan\u0027;\n  } else {\n    promo_info = \u0027Kode promo \u0027 + o.kode_promo + \u0027 tidak berlaku\u0027;\n  }\n}\nconst dpp = Math.max(0, o.subtotal - diskon_member - diskon_happy_hour - diskon_promo + o.biaya_layanan);\nconst pajak = Math.round(dpp * 0.10);\nconst ongkir_bayar = o.ongkir - potongan_ongkir;\nconst total_bayar = dpp + pajak + ongkir_bayar;\nconst poin_didapat = Math.floor(total_bayar / 10000);\nreturn [{ json: { ...o, diskon_member, diskon_happy_hour, diskon_promo, potongan_ongkir, diskon: diskon_member + diskon_happy_hour + diskon_promo + potongan_ongkir, ongkir_bayar, promo_info, happy_hour, pajak, total_bayar, poin_didapat } }];"
+                                     },
+                      "id":  "code-2",
+                      "name":  "Diskon Member Promo dan Pajak",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1344,
+                                       336
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const data = $getWorkflowStaticData(\u0027global\u0027);\nif (!data.stok) data.stok = { beras: 50, ayam: 40, mie: 40, kopi: 30, susu: 30, teh: 40 };\nconst RESEP = {\n  \u0027nasi-goreng\u0027: { beras: 1, ayam: 1 },\n  \u0027mie-goreng\u0027: { mie: 1, ayam: 1 },\n  \u0027ayam-bakar\u0027: { ayam: 2, beras: 1 },\n  \u0027es-kopi-susu\u0027: { kopi: 1, susu: 1 },\n  \u0027es-teh\u0027: { teh: 1 }\n};\nconst o = $input.first().json;\nconst butuh = {};\nfor (const it of o.items) {\n  for (const [b, q] of Object.entries(RESEP[it.kode] || {})) butuh[b] = (butuh[b] || 0) + q * it.qty;\n}\nconst kurang = Object.entries(butuh).filter(([b, q]) =\u003e (data.stok[b] ?? 0) \u003c q).map(([b]) =\u003e b);\nlet menipis = [];\nif (kurang.length === 0) {\n  for (const [b, q] of Object.entries(butuh)) data.stok[b] -= q;\n  menipis = Object.entries(data.stok).filter(([b, q]) =\u003e q \u003c= 10).map(([bahan, sisa]) =\u003e ({ bahan, sisa }));\n}\nreturn [{ json: { ...o, stok_cukup: kurang.length === 0, bahan_kurang: kurang, stok_menipis: menipis } }];"
+                                     },
+                      "id":  "code-3",
+                      "name":  "Cek dan Kurangi Stok",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1568,
+                                       336
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "c-stok",
+                                                                                   "leftValue":  "={{ $json.stok_cukup }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "if-2",
+                      "name":  "Stok Cukup?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       1792,
+                                       336
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ JSON.stringify({ status: \u0027ditolak\u0027, pesan: \u0027Stok bahan tidak mencukupi\u0027, bahan_kurang: $json.bahan_kurang }) }}",
+                                         "options":  {
+                                                         "responseCode":  409
+                                                     }
+                                     },
+                      "id":  "resp-stok",
+                      "name":  "Respon Stok Habis",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       2016,
+                                       432
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const data = $getWorkflowStaticData(\u0027global\u0027);\nconst o = $input.first().json;\nif (!data.harian) data.harian = { omzet: 0, jumlah: 0, per_menu: {}, per_tipe: {} };\ndata.harian.omzet += o.total_bayar;\ndata.harian.jumlah += 1;\nfor (const it of o.items) data.harian.per_menu[it.nama] = (data.harian.per_menu[it.nama] || 0) + it.qty;\ndata.harian.per_tipe[o.tipe] = (data.harian.per_tipe[o.tipe] || 0) + 1;\nif (!data.poin) data.poin = {};\nconst kunci = String(o.pelanggan || \u0027\u0027).toLowerCase();\ndata.poin[kunci] = (data.poin[kunci] || 0) + o.poin_didapat;\nreturn [{ json: { ...o, poin_total: data.poin[kunci] } }];"
+                                     },
+                      "id":  "code-5",
+                      "name":  "Catat Penjualan dan Poin",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       2016,
+                                       240
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const o = $input.first().json;\nconst cfg = $(\u0027Konfigurasi Pesanan\u0027).first().json;\nconst rp = n =\u003e \u0027Rp\u0027 + String(Math.round(n)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \u0027.\u0027);\nconst esc = s =\u003e String(s ?? \u0027\u0027).replace(/[\u0026\u003c\u003e\"\u0027]/g, c =\u003e ({ \u0027\u0026\u0027: \u0027\u0026amp;\u0027, \u0027\u003c\u0027: \u0027\u0026lt;\u0027, \u0027\u003e\u0027: \u0027\u0026gt;\u0027, \u0027\"\u0027: \u0027\u0026quot;\u0027, \"\u0027\": \u0027\u0026#39;\u0027 }[c]));\nconst baris = o.items.map(i =\u003e \u0027- \u0027 + i.qty + \u0027x \u0027 + i.nama + \u0027 (\u0027 + rp(i.total) + \u0027)\u0027).join(\u0027\\n\u0027);\nconst lokasi = o.tipe === \u0027dine-in\u0027 ? \u0027Meja \u0027 + o.meja : (o.tipe === \u0027delivery\u0027 ? \u0027Antar ke: \u0027 + o.alamat : \u0027Ambil di kasir\u0027);\nconst pesan_dapur = \u0027PESANAN BARU \u0027 + o.order_id + \u0027\\nPelanggan: \u0027 + o.pelanggan + \u0027 (member: \u0027 + o.member + \u0027)\\nTipe: \u0027 + o.tipe.toUpperCase() + \u0027 - \u0027 + lokasi + \u0027\\n\\n\u0027 + baris + \u0027\\n\\nCatatan: \u0027 + (o.catatan_pelanggan || \u0027-\u0027) + \u0027\\nEstimasi: \u0027 + o.estimasi_menit + \u0027 menit\\nTotal: \u0027 + rp(o.total_bayar);\nconst peringatan_restock = o.stok_menipis.length \u003e 0 ? \u0027Segera restock: \u0027 + o.stok_menipis.map(s =\u003e s.bahan + \u0027 (sisa \u0027 + s.sisa + \u0027)\u0027).join(\u0027, \u0027) : null;\nconst pesan_restock = peringatan_restock ? \u0027PERINGATAN STOK MENIPIS\\n\u0027 + peringatan_restock + \u0027\\nTerpicu oleh pesanan \u0027 + o.order_id : \u0027\u0027;\nconst rows = o.items.map(i =\u003e `\u003ctr\u003e\u003ctd\u003e${esc(i.nama)}\u003c/td\u003e\u003ctd align=\u0027center\u0027\u003e${i.qty}\u003c/td\u003e\u003ctd align=\u0027right\u0027\u003e${rp(i.total)}\u003c/td\u003e\u003c/tr\u003e`).join(\u0027\u0027);\nconst email_html = `\u003cdiv style=\u0027font-family:Arial,sans-serif;max-width:480px;margin:auto\u0027\u003e\u003ch2\u003e${esc(cfg.nama_toko)}\u003c/h2\u003e\u003cp\u003eHalo ${esc(o.pelanggan)}, terima kasih! Pesanan \u003cb\u003e${o.order_id}\u003c/b\u003e sudah kami terima.\u003c/p\u003e\u003ctable width=\u0027100%\u0027 cellpadding=\u00276\u0027 style=\u0027border-collapse:collapse\u0027\u003e\u003ctr style=\u0027background:#f3f3f3\u0027\u003e\u003cth align=\u0027left\u0027\u003eMenu\u003c/th\u003e\u003cth\u003eQty\u003c/th\u003e\u003cth align=\u0027right\u0027\u003eHarga\u003c/th\u003e\u003c/tr\u003e${rows}\u003c/table\u003e\u003cp\u003eSubtotal: ${rp(o.subtotal)}\u003cbr\u003eDiskon: -${rp(o.diskon)}\u003cbr\u003eBiaya layanan: ${rp(o.biaya_layanan)}\u003cbr\u003eOngkir: ${rp(o.ongkir_bayar)}\u003cbr\u003ePajak 10%: ${rp(o.pajak)}\u003cbr\u003e\u003cb\u003eTotal: ${rp(o.total_bayar)}\u003c/b\u003e\u003c/p\u003e\u003cp\u003eEstimasi: ${o.estimasi_menit} menit. Poin didapat: ${o.poin_didapat} (total ${o.poin_total}).\u003c/p\u003e\u003c/div\u003e`;\nconst email_subject = \u0027Struk Pesanan \u0027 + o.order_id + \u0027 - \u0027 + cfg.nama_toko;\nconst row = {\n  order_id: o.order_id,\n  waktu: o.waktu,\n  pelanggan: o.pelanggan,\n  tipe: o.tipe,\n  member: o.member,\n  item: o.items.map(i =\u003e i.qty + \u0027x \u0027 + i.nama).join(\u0027; \u0027),\n  subtotal: o.subtotal,\n  diskon: o.diskon,\n  promo: o.promo_info || \u0027\u0027,\n  biaya_layanan: o.biaya_layanan,\n  ongkir: o.ongkir_bayar,\n  pajak: o.pajak,\n  total_bayar: o.total_bayar,\n  poin: o.poin_didapat,\n  status: \u0027diterima\u0027\n};\nreturn [{ json: { ...o, pesan_dapur, pesan_restock, peringatan_restock, email_subject, email_html, row } }];"
+                                     },
+                      "id":  "code-6",
+                      "name":  "Susun Notifikasi dan Struk",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       2240,
+                                       240
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ JSON.stringify({ status: \u0027diterima\u0027, order_id: $json.order_id, pelanggan: $json.pelanggan, tipe: $json.tipe, items: $json.items, rincian: { subtotal: $json.subtotal, diskon_member: $json.diskon_member, diskon_happy_hour: $json.diskon_happy_hour, diskon_promo: $json.diskon_promo, biaya_layanan: $json.biaya_layanan, pajak: $json.pajak, ongkir: $json.ongkir_bayar, potongan_ongkir: $json.potongan_ongkir, total_bayar: $json.total_bayar }, promo_info: $json.promo_info, happy_hour: $json.happy_hour, poin_didapat: $json.poin_didapat, poin_total: $json.poin_total, estimasi_menit: $json.estimasi_menit, catatan: $json.catatan, peringatan_restock: $json.peringatan_restock }) }}",
+                                         "options":  {
+                                                         "responseCode":  200
+                                                     }
+                                     },
+                      "id":  "resp-ok",
+                      "name":  "Respon Pesanan Diterima",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       2464,
+                                       -48
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "chatId":  "={{ $(\u0027Konfigurasi Pesanan\u0027).first().json.chat_id_dapur }}",
+                                         "text":  "={{ $json.pesan_dapur }}",
+                                         "additionalFields":  {
+                                                                  "appendAttribution":  false
+                                                              }
+                                     },
+                      "id":  "tg-dapur",
+                      "name":  "Telegram Dapur",
+                      "type":  "n8n-nodes-base.telegram",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       2464,
+                                       144
+                                   ],
+                      "webhookId":  "30f15ec1-044e-42b9-95d1-43813aac289a",
+                      "credentials":  {
+                                          "telegramApi":  {
+                                                              "id":  "ULv4hXTviWmJktl9",
+                                                              "name":  "Telegram account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "return [{ json: $input.first().json.row }];"
+                                     },
+                      "id":  "code-7",
+                      "name":  "Baris Pesanan",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       2464,
+                                       336
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "append",
+                                         "documentId":  {
+                                                            "__rl":  true,
+                                                            "mode":  "id",
+                                                            "value":  "={{ $(\u0027Konfigurasi Pesanan\u0027).first().json.sheet_id }}"
+                                                        },
+                                         "sheetName":  {
+                                                           "__rl":  true,
+                                                           "mode":  "name",
+                                                           "value":  "Pesanan"
+                                                       },
+                                         "columns":  {
+                                                         "mappingMode":  "autoMapInputData",
+                                                         "value":  {
+
+                                                                   },
+                                                         "matchingColumns":  [
+
+                                                                             ],
+                                                         "schema":  [
+
+                                                                    ]
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "gs-1",
+                      "name":  "Simpan Pesanan ke Sheets",
+                      "type":  "n8n-nodes-base.googleSheets",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       2688,
+                                       336
+                                   ],
+                      "credentials":  {
+                                          "googleSheetsOAuth2Api":  {
+                                                                        "id":  "PehPZbFrLwpduW21",
+                                                                        "name":  "Google Sheets account"
+                                                                    }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "c-email",
+                                                                                   "leftValue":  "={{ !!$json.email }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "if-5",
+                      "name":  "Ada Email Pelanggan?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       2464,
+                                       528
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "sendTo":  "={{ $json.email }}",
+                                         "subject":  "={{ $json.email_subject }}",
+                                         "message":  "={{ $json.email_html }}",
+                                         "options":  {
+                                                         "appendAttribution":  false
+                                                     }
+                                     },
+                      "id":  "gm-1",
+                      "name":  "Kirim Struk Email",
+                      "type":  "n8n-nodes-base.gmail",
+                      "typeVersion":  2.1,
+                      "position":  [
+                                       2688,
+                                       528
+                                   ],
+                      "webhookId":  "3516141a-da8f-47d5-ab42-3009e80dbb5f",
+                      "credentials":  {
+                                          "gmailOAuth2":  {
+                                                              "id":  "GrrQJczsYdu8hPtW",
+                                                              "name":  "Gmail account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "c-low",
+                                                                                   "leftValue":  "={{ $json.stok_menipis.length }}",
+                                                                                   "rightValue":  0,
+                                                                                   "operator":  {
+                                                                                                    "type":  "number",
+                                                                                                    "operation":  "gt"
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "if-3",
+                      "name":  "Ada Stok Menipis?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       2464,
+                                       720
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "chatId":  "={{ $(\u0027Konfigurasi Pesanan\u0027).first().json.chat_id_owner }}",
+                                         "text":  "={{ $json.pesan_restock }}",
+                                         "additionalFields":  {
+                                                                  "appendAttribution":  false
+                                                              }
+                                     },
+                      "id":  "tg-restock",
+                      "name":  "Telegram Owner Restock",
+                      "type":  "n8n-nodes-base.telegram",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       2688,
+                                       720
+                                   ],
+                      "webhookId":  "518465c8-28c8-46f9-aba6-4198e2fc052b",
+                      "credentials":  {
+                                          "telegramApi":  {
+                                                              "id":  "ULv4hXTviWmJktl9",
+                                                              "name":  "Telegram account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "content":  "## ALUR 2: LAPORAN HARIAN (22:00 WIB)\nRekap omzet, jumlah pesanan, menu terlaris, stok kritis. Dikirim ke Telegram + Email owner, dicatat di Sheets, dan draft order dikirim ke supplier jika ada bahan menipis (\u003c=10).",
+                                         "height":  140,
+                                         "width":  900,
+                                         "color":  5
+                                     },
+                      "id":  "note-2",
+                      "name":  "Catatan Alur Laporan",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -48,
+                                       800
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "rule":  {
+                                                      "interval":  [
+                                                                       {
+                                                                           "triggerAtHour":  22
+                                                                       }
+                                                                   ]
+                                                  }
+                                     },
+                      "id":  "sch-1",
+                      "name":  "Jadwal Harian 22:00",
+                      "type":  "n8n-nodes-base.scheduleTrigger",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       0,
+                                       1232
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "l1",
+                                                                                     "name":  "nama_toko",
+                                                                                     "value":  "Warung Nusantara",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "l2",
+                                                                                     "name":  "chat_id_owner",
+                                                                                     "value":  "GANTI_CHAT_ID_OWNER",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "l3",
+                                                                                     "name":  "email_owner",
+                                                                                     "value":  "GANTI_EMAIL_OWNER",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "l4",
+                                                                                     "name":  "email_supplier",
+                                                                                     "value":  "GANTI_EMAIL_SUPPLIER",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "l5",
+                                                                                     "name":  "sheet_id",
+                                                                                     "value":  "GANTI_SHEET_ID",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "includeOtherFields":  true,
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "cfg-2",
+                      "name":  "Konfigurasi Laporan",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       224,
+                                       1232
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const data = $getWorkflowStaticData(\u0027global\u0027);\nconst stok = data.stok || { beras: 50, ayam: 40, mie: 40, kopi: 30, susu: 30, teh: 40 };\nconst h = data.harian || { omzet: 0, jumlah: 0, per_menu: {}, per_tipe: {} };\nconst rp = n =\u003e \u0027Rp\u0027 + String(Math.round(n)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \u0027.\u0027);\nconst kritis = Object.entries(stok).filter(([b, q]) =\u003e q \u003c= 10).map(([bahan, sisa]) =\u003e ({ bahan, sisa }));\nconst terlaris = Object.entries(h.per_menu).sort((a, b) =\u003e b[1] - a[1]).slice(0, 3).map(([n, q]) =\u003e n + \u0027 (\u0027 + q + \u0027)\u0027);\nconst tanggal = new Date().toLocaleDateString(\u0027en-CA\u0027, { timeZone: \u0027Asia/Jakarta\u0027 });\nconst rata = h.jumlah ? Math.round(h.omzet / h.jumlah) : 0;\nconst per_tipe = Object.entries(h.per_tipe).map(([t, n]) =\u003e t + \u0027: \u0027 + n).join(\u0027, \u0027) || \u0027-\u0027;\nconst laporan = \u0027LAPORAN HARIAN \u0027 + tanggal + \u0027\\nOmzet: \u0027 + rp(h.omzet) + \u0027\\nJumlah pesanan: \u0027 + h.jumlah + \u0027\\nRata-rata per pesanan: \u0027 + rp(rata) + \u0027\\nPer tipe: \u0027 + per_tipe + \u0027\\nMenu terlaris: \u0027 + (terlaris.join(\u0027, \u0027) || \u0027-\u0027) + \u0027\\nStok kritis: \u0027 + (kritis.map(k =\u003e k.bahan + \u0027 (\u0027 + k.sisa + \u0027)\u0027).join(\u0027, \u0027) || \u0027tidak ada\u0027);\ndata.harian = { omzet: 0, jumlah: 0, per_menu: {}, per_tipe: {} };\nreturn [{ json: { tanggal, omzet: h.omzet, jumlah_pesanan: h.jumlah, rata_rata: rata, terlaris, stok, kritis, ada_kritis: kritis.length \u003e 0, laporan } }];"
+                                     },
+                      "id":  "code-4",
+                      "name":  "Baca Data Harian",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       448,
+                                       1232
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "chatId":  "={{ $(\u0027Konfigurasi Laporan\u0027).first().json.chat_id_owner }}",
+                                         "text":  "={{ $json.laporan }}",
+                                         "additionalFields":  {
+                                                                  "appendAttribution":  false
+                                                              }
+                                     },
+                      "id":  "tg-lap",
+                      "name":  "Telegram Laporan Owner",
+                      "type":  "n8n-nodes-base.telegram",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       672,
+                                       944
+                                   ],
+                      "webhookId":  "fcbaac9a-688f-467e-93ee-b99d39c49c6d",
+                      "credentials":  {
+                                          "telegramApi":  {
+                                                              "id":  "ULv4hXTviWmJktl9",
+                                                              "name":  "Telegram account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "sendTo":  "={{ $(\u0027Konfigurasi Laporan\u0027).first().json.email_owner }}",
+                                         "subject":  "={{ \u0027Laporan Harian \u0027 + $json.tanggal }}",
+                                         "message":  "={{ $json.laporan.replace(/\\n/g, \u0027\u003cbr\u003e\u0027) }}",
+                                         "options":  {
+                                                         "appendAttribution":  false
+                                                     }
+                                     },
+                      "id":  "gm-lap",
+                      "name":  "Email Laporan Owner",
+                      "type":  "n8n-nodes-base.gmail",
+                      "typeVersion":  2.1,
+                      "position":  [
+                                       672,
+                                       1136
+                                   ],
+                      "webhookId":  "431bf0a2-9f8f-4e85-8fd7-3a1e88ecf8a7",
+                      "credentials":  {
+                                          "gmailOAuth2":  {
+                                                              "id":  "GrrQJczsYdu8hPtW",
+                                                              "name":  "Gmail account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const o = $input.first().json;\nreturn [{ json: {\n  tanggal: o.tanggal,\n  omzet: o.omzet,\n  jumlah_pesanan: o.jumlah_pesanan,\n  rata_rata: o.rata_rata,\n  menu_terlaris: o.terlaris.join(\u0027; \u0027),\n  stok_kritis: o.kritis.map(k =\u003e k.bahan + \u0027 (\u0027 + k.sisa + \u0027)\u0027).join(\u0027; \u0027)\n} }];"
+                                     },
+                      "id":  "code-8",
+                      "name":  "Baris Laporan",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       672,
+                                       1328
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "append",
+                                         "documentId":  {
+                                                            "__rl":  true,
+                                                            "mode":  "id",
+                                                            "value":  "={{ $(\u0027Konfigurasi Laporan\u0027).first().json.sheet_id }}"
+                                                        },
+                                         "sheetName":  {
+                                                           "__rl":  true,
+                                                           "mode":  "name",
+                                                           "value":  "Laporan Harian"
+                                                       },
+                                         "columns":  {
+                                                         "mappingMode":  "autoMapInputData",
+                                                         "value":  {
+
+                                                                   },
+                                                         "matchingColumns":  [
+
+                                                                             ],
+                                                         "schema":  [
+
+                                                                    ]
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "gs-2",
+                      "name":  "Simpan Laporan ke Sheets",
+                      "type":  "n8n-nodes-base.googleSheets",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       896,
+                                       1328
+                                   ],
+                      "credentials":  {
+                                          "googleSheetsOAuth2Api":  {
+                                                                        "id":  "PehPZbFrLwpduW21",
+                                                                        "name":  "Google Sheets account"
+                                                                    }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "c-krit",
+                                                                                   "leftValue":  "={{ $json.ada_kritis }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "if-4",
+                      "name":  "Ada Bahan Kritis?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       672,
+                                       1616
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "p1",
+                                                                                     "name":  "pesan",
+                                                                                     "value":  "={{ \u0027Halo Supplier, mohon kirim: \u0027 + $json.kritis.map(k =\u003e k.bahan + \u0027 (sisa \u0027 + k.sisa + \u0027)\u0027).join(\u0027, \u0027) + \u0027 per \u0027 + $json.tanggal + \u0027. Terima kasih - \u0027 + $(\u0027Konfigurasi Laporan\u0027).first().json.nama_toko }}",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "includeOtherFields":  true,
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "set-supp",
+                      "name":  "Draft Pesan Supplier",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       896,
+                                       1520
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "sendTo":  "={{ $(\u0027Konfigurasi Laporan\u0027).first().json.email_supplier }}",
+                                         "subject":  "={{ \u0027Permintaan Restock \u0027 + $json.tanggal }}",
+                                         "emailType":  "text",
+                                         "message":  "={{ $json.pesan }}",
+                                         "options":  {
+                                                         "appendAttribution":  false
+                                                     }
+                                     },
+                      "id":  "gm-supp",
+                      "name":  "Email Order ke Supplier",
+                      "type":  "n8n-nodes-base.gmail",
+                      "typeVersion":  2.1,
+                      "position":  [
+                                       1120,
+                                       1424
+                                   ],
+                      "webhookId":  "ff9eae8e-e238-418b-a87a-bb77977f5de2",
+                      "credentials":  {
+                                          "gmailOAuth2":  {
+                                                              "id":  "GrrQJczsYdu8hPtW",
+                                                              "name":  "Gmail account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "chatId":  "={{ $(\u0027Konfigurasi Laporan\u0027).first().json.chat_id_owner }}",
+                                         "text":  "={{ \u0027Order otomatis terkirim ke supplier:\\n\u0027 + $json.pesan }}",
+                                         "additionalFields":  {
+                                                                  "appendAttribution":  false
+                                                              }
+                                     },
+                      "id":  "tg-supp",
+                      "name":  "Telegram Owner Draft Supplier",
+                      "type":  "n8n-nodes-base.telegram",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       1120,
+                                       1616
+                                   ],
+                      "webhookId":  "7a0a3a80-f22e-474a-b783-b49fe38cafae",
+                      "credentials":  {
+                                          "telegramApi":  {
+                                                              "id":  "ULv4hXTviWmJktl9",
+                                                              "name":  "Telegram account"
+                                                          }
+                                      },
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "o1",
+                                                                                     "name":  "pesan",
+                                                                                     "value":  "={{ \u0027Stok aman per \u0027 + $json.tanggal + \u0027, tidak perlu order ke supplier.\u0027 }}",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "includeOtherFields":  true,
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "set-aman",
+                      "name":  "Stok Aman",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       896,
+                                       1712
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "content":  "## ALUR 3: API STOK\nGET  /webhook/fnb-stok -\u003e lihat stok bahan saat ini\nPOST /webhook/fnb-restock -\u003e tambah stok, body: {\"bahan\":\"ayam\",\"jumlah\":20}",
+                                         "height":  120,
+                                         "width":  900,
+                                         "color":  6
+                                     },
+                      "id":  "note-3",
+                      "name":  "Catatan Alur API Stok",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -96,
+                                       1760
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "path":  "fnb-stok",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "wh-2",
+                      "name":  "Webhook Cek Stok",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       0,
+                                       1936
+                                   ],
+                      "webhookId":  "fnb-stok-webhook"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const data = $getWorkflowStaticData(\u0027global\u0027);\nconst stok = data.stok || { beras: 50, ayam: 40, mie: 40, kopi: 30, susu: 30, teh: 40 };\nconst status = Object.entries(stok).map(([bahan, sisa]) =\u003e ({ bahan, sisa, status: sisa \u003c= 10 ? \u0027kritis\u0027 : (sisa \u003c= 20 ? \u0027rendah\u0027 : \u0027aman\u0027) }));\nreturn [{ json: { stok, status } }];"
+                                     },
+                      "id":  "code-9",
+                      "name":  "Ambil Stok",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       224,
+                                       1936
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ JSON.stringify($json) }}",
+                                         "options":  {
+                                                         "responseCode":  200
+                                                     }
+                                     },
+                      "id":  "resp-cek",
+                      "name":  "Respon Cek Stok",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       448,
+                                       1936
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "fnb-restock",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "wh-3",
+                      "name":  "Webhook Restock",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       0,
+                                       2256
+                                   ],
+                      "webhookId":  "fnb-restock-webhook"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const data = $getWorkflowStaticData(\u0027global\u0027);\nif (!data.stok) data.stok = { beras: 50, ayam: 40, mie: 40, kopi: 30, susu: 30, teh: 40 };\nconst b = $input.first().json.body || {};\nconst jumlah = Number(b.jumlah);\nif (!(b.bahan in data.stok)) return [{ json: { ok: false, pesan: \u0027Bahan tidak dikenal: \u0027 + b.bahan, bahan_tersedia: Object.keys(data.stok) } }];\nif (!(jumlah \u003e 0)) return [{ json: { ok: false, pesan: \u0027Jumlah harus lebih dari 0\u0027 } }];\ndata.stok[b.bahan] += jumlah;\nreturn [{ json: { ok: true, pesan: \u0027Stok \u0027 + b.bahan + \u0027 ditambah \u0027 + jumlah, stok_sekarang: data.stok } }];"
+                                     },
+                      "id":  "code-10",
+                      "name":  "Tambah Stok",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       224,
+                                       2256
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "c-rs",
+                                                                                   "leftValue":  "={{ $json.ok }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "if-6",
+                      "name":  "Restock Berhasil?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       448,
+                                       2256
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ JSON.stringify($json) }}",
+                                         "options":  {
+                                                         "responseCode":  200
+                                                     }
+                                     },
+                      "id":  "resp-rs-ok",
+                      "name":  "Respon Restock Berhasil",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       672,
+                                       2160
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ JSON.stringify($json) }}",
+                                         "options":  {
+                                                         "responseCode":  400
+                                                     }
+                                     },
+                      "id":  "resp-rs-gagal",
+                      "name":  "Respon Restock Gagal",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       672,
+                                       2352
+                                   ]
+                  }
+              ],
+    "connections":  {
+                        "Webhook Pesanan Masuk":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Konfigurasi Pesanan",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Konfigurasi Pesanan":  {
+                                                    "main":  [
+                                                                 [
+                                                                     {
+                                                                         "node":  "Validasi dan Hitung Subtotal",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ]
+                                                             ]
+                                                },
+                        "Validasi dan Hitung Subtotal":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Pesanan Valid?",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         },
+                        "Pesanan Valid?":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Tipe Pesanan",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ],
+                                                            [
+                                                                {
+                                                                    "node":  "Respon Error Validasi",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Tipe Pesanan":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Biaya Dine-in",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ],
+                                                          [
+                                                              {
+                                                                  "node":  "Biaya Takeaway",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ],
+                                                          [
+                                                              {
+                                                                  "node":  "Biaya Delivery",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Biaya Dine-in":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Diskon Member Promo dan Pajak",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Biaya Takeaway":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Diskon Member Promo dan Pajak",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Biaya Delivery":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Diskon Member Promo dan Pajak",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Diskon Member Promo dan Pajak":  {
+                                                              "main":  [
+                                                                           [
+                                                                               {
+                                                                                   "node":  "Cek dan Kurangi Stok",
+                                                                                   "type":  "main",
+                                                                                   "index":  0
+                                                                               }
+                                                                           ]
+                                                                       ]
+                                                          },
+                        "Cek dan Kurangi Stok":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Stok Cukup?",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Stok Cukup?":  {
+                                            "main":  [
+                                                         [
+                                                             {
+                                                                 "node":  "Catat Penjualan dan Poin",
+                                                                 "type":  "main",
+                                                                 "index":  0
+                                                             }
+                                                         ],
+                                                         [
+                                                             {
+                                                                 "node":  "Respon Stok Habis",
+                                                                 "type":  "main",
+                                                                 "index":  0
+                                                             }
+                                                         ]
+                                                     ]
+                                        },
+                        "Catat Penjualan dan Poin":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Susun Notifikasi dan Struk",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     },
+                        "Susun Notifikasi dan Struk":  {
+                                                           "main":  [
+                                                                        [
+                                                                            {
+                                                                                "node":  "Respon Pesanan Diterima",
+                                                                                "type":  "main",
+                                                                                "index":  0
+                                                                            },
+                                                                            {
+                                                                                "node":  "Telegram Dapur",
+                                                                                "type":  "main",
+                                                                                "index":  0
+                                                                            },
+                                                                            {
+                                                                                "node":  "Baris Pesanan",
+                                                                                "type":  "main",
+                                                                                "index":  0
+                                                                            },
+                                                                            {
+                                                                                "node":  "Ada Email Pelanggan?",
+                                                                                "type":  "main",
+                                                                                "index":  0
+                                                                            },
+                                                                            {
+                                                                                "node":  "Ada Stok Menipis?",
+                                                                                "type":  "main",
+                                                                                "index":  0
+                                                                            }
+                                                                        ]
+                                                                    ]
+                                                       },
+                        "Baris Pesanan":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Simpan Pesanan ke Sheets",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Ada Email Pelanggan?":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Kirim Struk Email",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ],
+                                                                  [
+
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Ada Stok Menipis?":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Telegram Owner Restock",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+
+                                                               ]
+                                                           ]
+                                              },
+                        "Jadwal Harian 22:00":  {
+                                                    "main":  [
+                                                                 [
+                                                                     {
+                                                                         "node":  "Konfigurasi Laporan",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ]
+                                                             ]
+                                                },
+                        "Konfigurasi Laporan":  {
+                                                    "main":  [
+                                                                 [
+                                                                     {
+                                                                         "node":  "Baca Data Harian",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ]
+                                                             ]
+                                                },
+                        "Baca Data Harian":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Telegram Laporan Owner",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  },
+                                                                  {
+                                                                      "node":  "Email Laporan Owner",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  },
+                                                                  {
+                                                                      "node":  "Baris Laporan",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  },
+                                                                  {
+                                                                      "node":  "Ada Bahan Kritis?",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Baris Laporan":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Simpan Laporan ke Sheets",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Ada Bahan Kritis?":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Draft Pesan Supplier",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "Stok Aman",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Draft Pesan Supplier":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Email Order ke Supplier",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      },
+                                                                      {
+                                                                          "node":  "Telegram Owner Draft Supplier",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Webhook Cek Stok":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Ambil Stok",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Ambil Stok":  {
+                                           "main":  [
+                                                        [
+                                                            {
+                                                                "node":  "Respon Cek Stok",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                                    ]
+                                       },
+                        "Webhook Restock":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Tambah Stok",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Tambah Stok":  {
+                                            "main":  [
+                                                         [
+                                                             {
+                                                                 "node":  "Restock Berhasil?",
+                                                                 "type":  "main",
+                                                                 "index":  0
+                                                             }
+                                                         ]
+                                                     ]
+                                        },
+                        "Restock Berhasil?":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Respon Restock Berhasil",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "Respon Restock Gagal",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "timezone":  "Asia/Jakarta",
+                     "errorWorkflow":  "B3mCGnBVKQkTfNKi",
+                     "binaryMode":  "separate"
+                 }
+}

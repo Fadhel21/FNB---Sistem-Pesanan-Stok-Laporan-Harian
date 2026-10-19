@@ -1,0 +1,12 @@
+# Berisi API key n8n asli - jangan pernah di-commit (pakai .mcp.json.example)
+.mcp.json
+
+# Secret / env
+.env
+.env.*
+
+# Sistem & editor
+.DS_Store
+Thumbs.db
+.vscode/
+node_modules/

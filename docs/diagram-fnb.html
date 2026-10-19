@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Diagram Workflow FNB</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; background: #ffffff; margin: 24px; color: #222; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 28px 0 6px; padding: 6px 12px; border-radius: 6px; color: #fff; display: inline-block; }
+  .a1 { background: #2563eb; } .a2 { background: #7c3aed; } .a3 { background: #059669; }
+  p.sub { margin: 0 0 8px; color: #555; }
+</style>
+</head>
+<body>
+<h1>FNB - Sistem Pesanan, Stok &amp; Laporan Harian</h1>
+<p class="sub">Workflow n8n ID 0VHkvHVBp2O8gTz2 (43 node, 3 alur) + penangan error</p>
+
+<h2 class="a1">Alur 1: Pesanan Masuk (POST /webhook/fnb-order)</h2>
+<pre class="mermaid">
+flowchart LR
+  W([Webhook Pesanan Masuk]) --> K[Konfigurasi Pesanan] --> V[Validasi dan Hitung Subtotal] --> IV{Pesanan Valid?}
+  IV -- tidak --> E400[/Respon 400 Error Validasi/]
+  IV -- ya --> SW{Tipe Pesanan}
+  SW -- Dine-in --> B1[Biaya Dine-in<br/>service 5%]
+  SW -- Takeaway --> B2[Biaya Takeaway]
+  SW -- Delivery --> B3[Biaya Delivery<br/>ongkir per km]
+  B1 --> D[Diskon Member, Promo, Happy Hour dan Pajak]
+  B2 --> D
+  B3 --> D
+  D --> S[Cek dan Kurangi Stok] --> IS{Stok Cukup?}
+  IS -- tidak --> E409[/Respon 409 Stok Habis/]
+  IS -- ya --> C[Catat Penjualan dan Poin] --> N[Susun Notifikasi dan Struk]
+  N --> R200[/Respon 200 Pesanan Diterima/]
+  N --> TD[Telegram Dapur]
+  N --> BP[Baris Pesanan] --> GS1[(Simpan ke Google Sheets)]
+  N --> IE{Ada Email Pelanggan?} -- ya --> GM1[Kirim Struk via Gmail]
+  N --> IM{Ada Stok Menipis?} -- ya --> TR[Telegram Owner Restock]
+  classDef trig fill:#fde68a,stroke:#b45309,color:#000;
+  classDef resp fill:#bbf7d0,stroke:#15803d,color:#000;
+  classDef err fill:#fecaca,stroke:#b91c1c,color:#000;
+  classDef ext fill:#bfdbfe,stroke:#1d4ed8,color:#000;
+  class W trig
+  class R200 resp
+  class E400,E409 err
+  class TD,GS1,GM1,TR ext
+</pre>
+
+<h2 class="a2">Alur 2: Laporan Harian (22:00 WIB)</h2>
+<pre class="mermaid">
+flowchart LR
+  J([Jadwal Harian 22:00]) --> KL[Konfigurasi Laporan] --> BD[Baca Data Harian<br/>omzet, menu terlaris, stok]
+  BD --> TL[Telegram Laporan Owner]
+  BD --> EL[Email Laporan Owner]
+  BD --> BL[Baris Laporan] --> GS2[(Simpan ke Google Sheets)]
+  BD --> BK{Ada Bahan Kritis?}
+  BK -- ya --> DS[Draft Pesan Supplier]
+  DS --> ES[Email Order ke Supplier]
+  DS --> TS[Telegram Owner Draft Supplier]
+  BK -- tidak --> SA[Stok Aman]
+  classDef trig fill:#fde68a,stroke:#b45309,color:#000;
+  classDef ext fill:#bfdbfe,stroke:#1d4ed8,color:#000;
+  class J trig
+  class TL,EL,GS2,ES,TS ext
+</pre>
+
+<h2 class="a3">Alur 3: API Stok + Penangan Error</h2>
+<pre class="mermaid">
+flowchart LR
+  W2([GET /fnb-stok]) --> AS[Ambil Stok] --> RC[/Respon Cek Stok/]
+  W3([POST /fnb-restock]) --> TS2[Tambah Stok] --> RB{Restock Berhasil?}
+  RB -- ya --> R1[/Respon 200/]
+  RB -- tidak --> R2[/Respon 400/]
+  ET([Error Trigger]) --> KE[Konfigurasi Error] --> TE[Telegram Owner Error]
+  classDef trig fill:#fde68a,stroke:#b45309,color:#000;
+  classDef resp fill:#bbf7d0,stroke:#15803d,color:#000;
+  classDef err fill:#fecaca,stroke:#b91c1c,color:#000;
+  class W2,W3,ET trig
+  class RC,R1 resp
+  class R2 err
+</pre>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { useMaxWidth: false, htmlLabels: true }, securityLevel: 'loose' });
+</script>
+</body>
+</html>

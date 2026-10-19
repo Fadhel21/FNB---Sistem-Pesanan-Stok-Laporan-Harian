@@ -1,0 +1,98 @@
+﻿{
+    "name":  "FNB - Penangan Error (Telegram)",
+    "nodes":  [
+                  {
+                      "id":  "err-trigger",
+                      "name":  "Error Trigger",
+                      "type":  "n8n-nodes-base.errorTrigger",
+                      "typeVersion":  1,
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "parameters":  {
+
+                                     }
+                  },
+                  {
+                      "id":  "err-cfg",
+                      "name":  "Konfigurasi Error",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       220,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "includeOtherFields":  true,
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "e1",
+                                                                                     "name":  "chat_id_owner",
+                                                                                     "value":  "GANTI_CHAT_ID_OWNER",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "err-tg",
+                      "name":  "Telegram Owner Error",
+                      "type":  "n8n-nodes-base.telegram",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       440,
+                                       0
+                                   ],
+                      "credentials":  {
+                                          "telegramApi":  {
+                                                              "id":  "ULv4hXTviWmJktl9",
+                                                              "name":  "Telegram account"
+                                                          }
+                                      },
+                      "parameters":  {
+                                         "resource":  "message",
+                                         "operation":  "sendMessage",
+                                         "chatId":  "={{ $json.chat_id_owner }}",
+                                         "text":  "={{ \u0027ERROR n8n\\nWorkflow: \u0027 + $json.workflow.name + \u0027\\nNode: \u0027 + ($json.execution.lastNodeExecuted || \u0027-\u0027) + \u0027\\nPesan: \u0027 + ($json.execution.error ? $json.execution.error.message : \u0027-\u0027) + \u0027\\nLink: \u0027 + ($json.execution.url || \u0027-\u0027) }}",
+                                         "additionalFields":  {
+                                                                  "appendAttribution":  false
+                                                              }
+                                     },
+                      "webhookId":  "813aa692-cdb2-4f45-a00e-c50be632481e"
+                  }
+              ],
+    "connections":  {
+                        "Error Trigger":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Konfigurasi Error",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Konfigurasi Error":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Telegram Owner Error",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "timezone":  "Asia/Jakarta"
+                 }
+}
